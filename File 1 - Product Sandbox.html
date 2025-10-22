@@ -1,0 +1,931 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Product E‑commerce Sandbox</title>
+<style>
+  :root { --gap: 14px; --card-pad: 10px; --border: #e3e3e3; --bg: #fafafa; --accent: #111; }
+  body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; margin: 16px; background: var(--bg);}
+  h1 { margin: 0 0 8px 0; }
+  .toolbar { display:flex; gap:8px; flex-wrap:wrap; margin: 8px 0 16px; }
+  button { padding: 8px 12px; border: 1px solid #ccc; background:#fff; cursor:pointer; border-radius:10px; }
+  button.primary { background:#111; color:#fff; border-color:#111; }
+  .grid { display:grid; gap: var(--gap); }
+  .card { background:#fff; border:1px solid var(--border); border-radius:16px; padding: var(--card-pad); display:flex; flex-direction:column; width: 240px; min-height: 400px; }
+  .card img { width:100%; height: 200px; object-fit: contain; border-radius:12px; background: #f5f5f5; }
+  .card-content { flex: 1; display: flex; flex-direction: column; justify-content: space-between; }
+  .card-text { flex: 1; }
+  .card-actions { margin-top: auto; }
+  .meta { font-size: 14px; color:#333; margin-top:6px; }
+  .badges { font-size: 13px; color:#444; margin-top:4px; min-height: 20px; }
+  .badge { display:inline-block; padding:2px 8px; border:1px solid #ddd; border-radius:12px; margin-right:6px; }
+  .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .side { margin-top: 18px; display:grid; grid-template-columns: 1fr; gap:12px; }
+  details > summary { cursor: pointer; font-weight:600; }
+  table {
+    border-collapse: collapse; width: 100%; font-size: 14px; background:#fff; border:1px solid var(--border); border-radius:10px; overflow:hidden;
+  }
+  th, td { border-bottom:1px solid #eee; padding:6px 8px; text-align:left; }
+  tr:last-child td { border-bottom:none; }
+  input[type="text"], input[type="number"], select { width: 100%; padding:6px 8px; border:1px solid #ccc; border-radius:8px; }
+  input[type="file"] { width: 100%; padding:4px; border:1px solid #ccc; border-radius:6px; font-size:12px; }
+  .msg { margin-top:8px; font-size:14px; }
+  .foot { margin-top: 18px; font-size:12px; color:#666; }
+  .grid-controls { margin: 8px 0 16px; padding: 12px; background: #fff; border: 1px solid var(--border); border-radius: 10px; }
+  .search-bar { margin: 8px 0 16px; }
+  .search-bar input { width: 100%; max-width: 400px; padding: 10px; border: 1px solid #ccc; border-radius: 8px; font-size: 16px; }
+  .title-controls { margin: 8px 0 16px; padding: 12px; background: #fff; border: 1px solid var(--border); border-radius: 10px; }
+  .title-controls input { width: 300px; padding: 8px; border: 1px solid #ccc; border-radius: 6px; }
+  .price-container { margin: 4px 0; }
+  .original-price { text-decoration: line-through; color: #999; font-size: 14px; }
+  .sale-price { color: #e74c3c; font-weight: bold; font-size: 16px; }
+  .current-price { font-weight: bold; font-size: 16px; }
+  .price-breakdown { font-size: 12px; color: #666; margin-top: 2px; }
+  .savings { color: #27ae60; font-weight: bold; font-size: 12px; }
+</style>
+</head>
+<body>
+  <h1 id="pageTitle">Product E‑commerce Sandbox</h1>
+  
+  <div class="title-controls">
+    <label for="titleInput">Page Title:</label>
+    <input type="text" id="titleInput" value="Product E‑commerce Sandbox" placeholder="Enter page title">
+    <button onclick="updateTitle()">Update Title</button>
+  </div>
+
+  <div class="search-bar">
+    <input type="text" id="searchInput" placeholder="Search products by name, category, brand, or description...">
+  </div>
+
+  <div class="toolbar">
+    <button id="shuffle">🔀 Shuffle positions</button>
+    <button id="resetProducts">↩️ Reset to original products</button>
+    <button id="exportLog">⬇️ Export selection log (CSV)</button>
+    <button id="saveSession">💾 Save session (.json)</button>
+    <button id="saveHTML">💾 Save as HTML</button>
+    <input id="loadSession" type="file" accept=".json">
+  </div>
+
+  <div id="grid" class="grid"></div>
+
+  <div class="side">
+    <details>
+      <summary>🛒 Cart</summary>
+      <div id="cart"></div>
+    </details>
+
+    <details open>
+      <summary>✏️ Product Catalog Editor</summary>
+      <div id="editor"></div>
+      <div class="msg" id="editorMsg"></div>
+    </details>
+  </div>
+
+  <div class="grid-controls">
+    <label for="gridCols">Grid Columns:</label>
+    <select id="gridCols">
+      <option value="2">2 columns</option>
+      <option value="3" selected>3 columns</option>
+      <option value="4">4 columns</option>
+      <option value="5">5 columns</option>
+      <option value="6">6 columns</option>
+    </select>
+    <label for="gridRows" style="margin-left: 16px;">Grid Rows:</label>
+    <select id="gridRows">
+      <option value="1">1 row</option>
+      <option value="2" selected>2 rows</option>
+      <option value="3">3 rows</option>
+      <option value="4">4 rows</option>
+      <option value="5">5 rows</option>
+    </select>
+  </div>
+
+  <div class="foot">All client‑side. No server or external libraries required.</div>
+
+<script>
+const BADGE_KEYS = ["new_arrival","trending","limited_edition","bestseller"];
+let CATALOG = [
+  {
+    "name": "Wireless Headphones",
+    "category": "Electronics",
+    "brand": "TechSound",
+    "description": "Premium wireless headphones with noise cancellation",
+    "price": 89.99,
+    "original_price": 129.99,
+    "shipping": 5.99,
+    "tax": 7.20,
+    "image": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjMwMCIgZmlsbD0iIzMzMzMzMyIvPjx0ZXh0IHg9IjEwMCIgeT0iMTUwIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IndoaXRlIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5XaXJlbGVzcyBIZWFkcGhvbmVzPC90ZXh0Pjx0ZXh0IHg9IjEwMCIgeT0iMTcwIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTIiIGZpbGw9IiNjY2MiIHRleHQtYW5jaG9yPSJtaWRkbGUiPkVsZWN0cm9uaWNzPC90ZXh0Pjwvc3ZnPg==",
+    "new_arrival": true,
+    "trending": true,
+    "limited_edition": false,
+    "bestseller": false,
+    "availability": null
+  },
+  {
+    "name": "Smart Watch",
+    "category": "Wearables",
+    "brand": "FitTech",
+    "description": "Advanced fitness tracking smartwatch",
+    "price": 199.99,
+    "original_price": null,
+    "shipping": 0.00,
+    "tax": 16.00,
+    "image": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjMwMCIgZmlsbD0iIzE2NDI1MCIvPjx0ZXh0IHg9IjEwMCIgeT0iMTUwIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IndoaXRlIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5TbWFydCBXYXRjaDwvdGV4dD48dGV4dCB4PSIxMDAiIHk9IjE3MCIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjEyIiBmaWxsPSIjY2NjIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5XZWFyYWJsZXM8L3RleHQ+PC9zdmc+",
+    "new_arrival": false,
+    "trending": true,
+    "limited_edition": false,
+    "bestseller": true,
+    "availability": null
+  },
+  {
+    "name": "Coffee Maker",
+    "category": "Kitchen",
+    "brand": "BrewMaster",
+    "description": "Professional-grade coffee maker with timer",
+    "price": 45.99,
+    "original_price": 65.99,
+    "shipping": 8.99,
+    "tax": 4.40,
+    "image": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjMwMCIgZmlsbD0iIzgwMDAwMCIvPjx0ZXh0IHg9IjEwMCIgeT0iMTUwIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IndoaXRlIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5Db2ZmZWUgTWFrZXI8L3RleHQ+PHRleHQgeD0iMTAwIiB5PSIxNzAiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxMiIgZmlsbD0iI2NjYyIgdGV4dC1hbmNob3I9Im1pZGRsZSI+S2l0Y2hlbjwvdGV4dD48L3N2Zz4=",
+    "new_arrival": false,
+    "trending": false,
+    "limited_edition": true,
+    "bestseller": false,
+    "availability": 15
+  },
+  {
+    "name": "Bluetooth Speaker",
+    "category": "Electronics",
+    "brand": "SoundWave",
+    "description": "Portable waterproof Bluetooth speaker",
+    "price": 79.99,
+    "original_price": null,
+    "shipping": 4.99,
+    "tax": 6.40,
+    "image": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjMwMCIgZmlsbD0iIzAwNDQ2RCIvPjx0ZXh0IHg9IjEwMCIgeT0iMTQwIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTIiIGZpbGw9IndoaXRlIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5CbHVldG9vdGggU3BlYWtlcjwvdGV4dD48dGV4dCB4PSIxMDAiIHk9IjE1NiIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjEyIiBmaWxsPSIjY2NjIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5FbGVjdHJvbmljczwvdGV4dD48dGV4dCB4PSIxMDAiIHk9IjE3OCIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjEyIiBmaWxsPSIjY2NjIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5Qb3J0YWJsZTwvdGV4dD48L3N2Zz4=",
+    "new_arrival": false,
+    "trending": false,
+    "limited_edition": false,
+    "bestseller": true,
+    "availability": null
+  },
+  {
+    "name": "Laptop Stand",
+    "category": "Office",
+    "brand": "ErgoTech",
+    "description": "Adjustable aluminum laptop stand",
+    "price": 29.99,
+    "original_price": 39.99,
+    "shipping": 0.00,
+    "tax": 2.40,
+    "image": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjMwMCIgZmlsbD0iIzAwMDAwMCIvPjx0ZXh0IHg9IjEwMCIgeT0iMTUwIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IiMwMEZGMDAiIHRleHQtYW5jaG9yPSJtaWRkbGUiPkxhcHRvcCBTdGFuZDwvdGV4dD48dGV4dCB4PSIxMDAiIHk9IjE3MCIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjEyIiBmaWxsPSIjY2NjIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5PZmZpY2U8L3RleHQ+PC9zdmc+",
+    "new_arrival": true,
+    "trending": false,
+    "limited_edition": false,
+    "bestseller": false,
+    "availability": null
+  },
+  {
+    "name": "Fitness Tracker",
+    "category": "Wearables",
+    "brand": "FitTech",
+    "description": "Basic fitness tracking wristband",
+    "price": 49.99,
+    "original_price": null,
+    "shipping": 3.99,
+    "tax": 4.00,
+    "image": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjMwMCIgZmlsbD0iIzAwNjYwMCIvPjx0ZXh0IHg9IjEwMCIgeT0iMTUwIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IndoaXRlIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5GaXRuZXNzIFRyYWNrZXI8L3RleHQ+PHRleHQgeD0iMTAwIiB5PSIxNzAiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxMiIgZmlsbD0iI2NjYyIgdGV4dC1hbmNob3I9Im1pZGRsZSI+V2VhcmFibGVzPC90ZXh0Pjwvc3ZnPg==",
+    "new_arrival": false,
+    "trending": false,
+    "limited_edition": false,
+    "bestseller": false,
+    "availability": null
+  }
+];
+let CART = [];
+let LOG = [];
+let FILTERED_CATALOG = [];
+
+function shuffle(arr) { 
+  for (let i = arr.length - 1; i > 0; i--) { 
+    const j = Math.floor(Math.random() * (i + 1)); 
+    [arr[i], arr[j]] = [arr[j], arr[i]]; 
+  } 
+  return arr; 
+}
+
+function getGridSize() {
+  const cols = parseInt(document.getElementById('gridCols').value);
+  const rows = parseInt(document.getElementById('gridRows').value);
+  return cols * rows;
+}
+
+function filterCatalog() {
+  const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+  if (!searchTerm) {
+    FILTERED_CATALOG = [...CATALOG];
+  } else {
+    FILTERED_CATALOG = CATALOG.filter(product => 
+      product.name.toLowerCase().includes(searchTerm) ||
+      product.category.toLowerCase().includes(searchTerm) ||
+      product.brand.toLowerCase().includes(searchTerm) ||
+      product.description.toLowerCase().includes(searchTerm)
+    );
+  }
+}
+
+function calculateTotalPrice(product) {
+  return product.price + (product.shipping || 0) + (product.tax || 0);
+}
+
+function calculateSavings(product) {
+  if (product.original_price && product.original_price > product.price) {
+    return product.original_price - product.price;
+  }
+  return 0;
+}
+
+function renderGrid() {
+  const grid = document.getElementById('grid');
+  grid.innerHTML = "";
+  
+  const cols = parseInt(document.getElementById('gridCols').value);
+  const maxItems = getGridSize();
+  grid.style.gridTemplateColumns = `repeat(${cols}, 240px)`;
+  grid.style.justifyContent = 'start';
+  
+  filterCatalog();
+  const view = FILTERED_CATALOG.slice(0, maxItems);
+  view.forEach((p, i) => {
+    const originalIndex = CATALOG.indexOf(p);
+    const card = document.createElement('div'); 
+    card.className = 'card';
+    
+    const img = document.createElement('img'); img.src = p.image; img.alt = p.name;
+    
+    const cardContent = document.createElement('div');
+    cardContent.className = 'card-content';
+    
+    const cardText = document.createElement('div');
+    cardText.className = 'card-text';
+    
+    const name = document.createElement('div'); name.innerHTML = "<b>"+p.name+"</b>";
+    const meta = document.createElement('div'); meta.className = 'meta';
+    meta.textContent = `${p.brand} • ${p.category}`;
+    
+    // Enhanced pricing display
+    const priceContainer = document.createElement('div');
+    priceContainer.className = 'price-container';
+    
+    if (p.original_price && p.original_price > p.price) {
+      const savings = calculateSavings(p);
+      const savingsPercent = Math.round((savings / p.original_price) * 100);
+      
+      const originalPrice = document.createElement('span');
+      originalPrice.className = 'original-price';
+      originalPrice.textContent = `$${p.original_price.toFixed(2)}`;
+      
+      const salePrice = document.createElement('span');
+      salePrice.className = 'sale-price';
+      salePrice.textContent = `$${p.price.toFixed(2)}`;
+      
+      const savingsText = document.createElement('span');
+      savingsText.className = 'savings';
+      savingsText.textContent = ` Save $${savings.toFixed(2)} (${savingsPercent}%)`;
+      
+      priceContainer.append(originalPrice, ' ', salePrice, savingsText);
+    } else {
+      const currentPrice = document.createElement('span');
+      currentPrice.className = 'current-price';
+      currentPrice.textContent = `$${p.price.toFixed(2)}`;
+      priceContainer.appendChild(currentPrice);
+    }
+    
+    // Price breakdown
+    const totalPrice = calculateTotalPrice(p);
+    if (p.shipping > 0 || p.tax > 0) {
+      const breakdown = document.createElement('div');
+      breakdown.className = 'price-breakdown';
+      let breakdownText = `Total: $${totalPrice.toFixed(2)}`;
+      if (p.shipping > 0) breakdownText += ` (includes $${p.shipping.toFixed(2)} shipping)`;
+      if (p.tax > 0) breakdownText += ` + $${p.tax.toFixed(2)} tax`;
+      breakdown.textContent = breakdownText;
+      priceContainer.appendChild(breakdown);
+    }
+    
+    const description = document.createElement('div'); 
+    description.className = 'meta';
+    description.textContent = p.description;
+    
+    const badges = document.createElement('div'); badges.className = 'badges';
+    if (p.new_arrival) badges.innerHTML += `<span class="badge">🆕 New Arrival</span>`;
+    if (p.trending) badges.innerHTML += `<span class="badge">🔥 Trending</span>`;
+    if (p.bestseller) badges.innerHTML += `<span class="badge">⭐ Bestseller</span>`;
+    if (p.limited_edition && p.availability) badges.innerHTML += `<span class="badge">⚡ Only ${p.availability} left</span>`;
+
+    const cardActions = document.createElement('div');
+    cardActions.className = 'card-actions';
+    const row = document.createElement('div'); row.className = 'row';
+    const btn = document.createElement('button'); btn.textContent = "Add to cart"; btn.className="primary";
+    btn.onclick = () => addToCart(originalIndex);
+    row.appendChild(btn);
+    cardActions.appendChild(row);
+
+    cardText.append(name, meta, priceContainer, description, badges);
+    cardContent.append(cardText, cardActions);
+    card.append(img, cardContent);
+    grid.appendChild(card);
+  });
+}
+
+function updateTitle() {
+  const newTitle = document.getElementById('titleInput').value;
+  document.getElementById('pageTitle').textContent = newTitle;
+}
+
+function deleteProductByIndex(productIndex) {
+  if (productIndex >= 0 && productIndex < CATALOG.length) {
+    if (confirm('Are you sure you want to delete this product?')) {
+      CATALOG.splice(productIndex, 1);
+      renderGrid();
+      buildEditor();
+      document.getElementById('editorMsg').textContent = "Product deleted.";
+    }
+  }
+}
+
+function addProduct() {
+  CATALOG.push({
+    name:"New Product", category:"General", brand:"Brand Name", description:"Product description",
+    price:19.99, original_price:null, shipping:0.00, tax:0.00,
+    image:"data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjMwMCIgZmlsbD0iI2RkZGRkZCIvPjx0ZXh0IHg9IjEwMCIgeT0iMTUwIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IiM2NjYiIHRleHQtYW5jaG9yPSJtaWRkbGUiPk5ldyBQcm9kdWN0PC90ZXh0Pjx0ZXh0IHg9IjEwMCIgeT0iMTcwIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTIiIGZpbGw9IiM5OTkiIHRleHQtYW5jaG9yPSJtaWRkbGUiPlBsYWNlaG9sZGVyPC90ZXh0Pjwvc3ZnPg==",
+    new_arrival:false, trending:false, limited_edition:false, bestseller:false, availability:null
+  });
+  renderGrid();
+  buildEditor();
+  document.getElementById('editorMsg').textContent = "New product added.";
+}
+
+function importFromExcel(input) {
+  const file = input.files[0];
+  if (!file) return;
+  
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const text = e.target.result;
+      const lines = text.split('\n').filter(line => line.trim());
+      
+      if (lines.length < 2) {
+        alert('File must have at least a header row and one data row');
+        return;
+      }
+      
+      const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+      const requiredFields = ['name', 'category', 'brand', 'description', 'price'];
+      const missingFields = requiredFields.filter(field => !headers.includes(field));
+      
+      if (missingFields.length > 0) {
+        alert(`Missing required columns: ${missingFields.join(', ')}\nRequired columns: ${requiredFields.join(', ')}`);
+        return;
+      }
+      
+      const newProducts = [];
+      for (let i = 1; i < lines.length; i++) {
+        const values = lines[i].split(',').map(v => v.trim().replace(/"/g, ''));
+        if (values.length < headers.length) continue;
+        
+        const product = {
+          name: values[headers.indexOf('name')] || 'Untitled',
+          category: values[headers.indexOf('category')] || 'General',
+          brand: values[headers.indexOf('brand')] || 'Unknown',
+          description: values[headers.indexOf('description')] || 'Product description',
+          price: parseFloat(values[headers.indexOf('price')]) || 19.99,
+          original_price: headers.includes('original_price') ? parseFloat(values[headers.indexOf('original_price')]) || null : null,
+          shipping: headers.includes('shipping') ? parseFloat(values[headers.indexOf('shipping')]) || 0 : 0,
+          tax: headers.includes('tax') ? parseFloat(values[headers.indexOf('tax')]) || 0 : 0,
+          image: "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjMwMCIgZmlsbD0iI2RkZGRkZCIvPjx0ZXh0IHg9IjEwMCIgeT0iMTUwIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IiM2NjYiIHRleHQtYW5jaG9yPSJtaWRkbGUiPkltcG9ydGVkIFByb2R1Y3Q8L3RleHQ+PHRleHQgeD0iMTAwIiB5PSIxNzAiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxMiIgZmlsbD0iIzk5OSIgdGV4dC1hbmNob3I9Im1pZGRsZSI+UGxhY2Vob2xkZXI8L3RleHQ+PC9zdmc+",
+          new_arrival: false,
+          trending: false,
+          limited_edition: false,
+          bestseller: false,
+          availability: null
+        };
+        newProducts.push(product);
+      }
+      
+      CATALOG.push(...newProducts);
+      renderGrid();
+      buildEditor();
+      document.getElementById('editorMsg').textContent = `${newProducts.length} products imported from Excel.`;
+      
+    } catch (error) {
+      alert('Error reading file: ' + error.message);
+    }
+  };
+  reader.readAsText(file);
+}
+
+function saveHTML() {
+  // Get current settings
+  const currentTitle = document.getElementById('pageTitle').textContent;
+  const currentCols = document.getElementById('gridCols').value;
+  const currentRows = document.getElementById('gridRows').value;
+  const currentCatalog = CATALOG;
+  
+  // Create a simple production HTML by cloning and modifying current document
+  const newDoc = document.cloneNode(true);
+  
+  // Remove all customization elements
+  const elementsToRemove = [
+    '.title-controls',
+    '#shuffle',
+    '#resetProducts',
+    '#exportLog',
+    '#saveSession',
+    '#loadSession',
+    '#saveHTML',
+    '.grid-controls',
+    '#editor',
+    '#editorMsg'
+  ];
+  
+  elementsToRemove.forEach(selector => {
+    const elements = newDoc.querySelectorAll(selector);
+    elements.forEach(el => el.remove());
+  });
+  
+  // Update the title
+  const titleEl = newDoc.querySelector('#pageTitle');
+  if (titleEl) titleEl.textContent = currentTitle;
+  
+  // Update page title
+  const pageTitle = newDoc.querySelector('title');
+  if (pageTitle) pageTitle.textContent = currentTitle;
+  
+  // Update the CSS in the head to have adaptive image sizing
+  const styleEl = newDoc.querySelector('style');
+  if (styleEl) {
+    styleEl.textContent = styleEl.textContent.replace(
+      '.card { background:#fff; border:1px solid var(--border); border-radius:16px; padding: var(--card-pad); display:flex; flex-direction:column; width: 240px; height: 400px; }\n  .card img { width:100%; height: 200px; object-fit: contain; border-radius:12px; background: #f5f5f5; }',
+      '.card { background:#fff; border:1px solid var(--border); border-radius:16px; padding: var(--card-pad); display:flex; flex-direction:column; width: 240px; min-height: 400px; }\n  .card img { width:100%; height: 200px; object-fit: contain; border-radius:12px; background: #f5f5f5; }\n  .card-content { flex: 1; display: flex; flex-direction: column; justify-content: space-between; }\n  .card-text { flex: 1; }\n  .card-actions { margin-top: auto; }'
+    );
+  }
+
+  // Replace the script content with production version
+  const scriptEl = newDoc.querySelector('script');
+  if (scriptEl) {
+    scriptEl.innerHTML = `
+      const BADGE_KEYS = ["new_arrival","trending","limited_edition","bestseller"];
+      let CATALOG = ${JSON.stringify(currentCatalog, null, 2)};
+      let CART = [];
+      let LOG = [];
+      let FILTERED_CATALOG = [];
+
+      function filterCatalog() {
+        const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+        if (!searchTerm) {
+          FILTERED_CATALOG = [...CATALOG];
+        } else {
+          FILTERED_CATALOG = CATALOG.filter(product => 
+            product.name.toLowerCase().includes(searchTerm) ||
+            product.category.toLowerCase().includes(searchTerm) ||
+            product.brand.toLowerCase().includes(searchTerm) ||
+            product.description.toLowerCase().includes(searchTerm)
+          );
+        }
+      }
+
+      function calculateTotalPrice(product) {
+        return product.price + (product.shipping || 0) + (product.tax || 0);
+      }
+
+      function calculateSavings(product) {
+        if (product.original_price && product.original_price > product.price) {
+          return product.original_price - product.price;
+        }
+        return 0;
+      }
+
+      function renderGrid() {
+        const grid = document.getElementById('grid');
+        grid.innerHTML = "";
+        
+        const cols = ${currentCols};
+        const maxItems = cols * ${currentRows};
+        grid.style.gridTemplateColumns = "repeat(" + cols + ", 240px)";
+        grid.style.justifyContent = 'start';
+        
+        filterCatalog();
+        const view = FILTERED_CATALOG.slice(0, maxItems);
+        view.forEach((p, i) => {
+          const originalIndex = CATALOG.indexOf(p);
+          const card = document.createElement('div'); 
+          card.className = 'card';
+          
+          const img = document.createElement('img'); img.src = p.image; img.alt = p.name;
+          
+          const cardContent = document.createElement('div');
+          cardContent.className = 'card-content';
+          
+          const cardText = document.createElement('div');
+          cardText.className = 'card-text';
+          
+          const name = document.createElement('div'); name.innerHTML = "<b>"+p.name+"</b>";
+          const meta = document.createElement('div'); meta.className = 'meta';
+          meta.textContent = p.brand + " • " + p.category;
+          
+          // Enhanced pricing display
+          const priceContainer = document.createElement('div');
+          priceContainer.className = 'price-container';
+          
+          if (p.original_price && p.original_price > p.price) {
+            const savings = calculateSavings(p);
+            const savingsPercent = Math.round((savings / p.original_price) * 100);
+            
+            const originalPrice = document.createElement('span');
+            originalPrice.className = 'original-price';
+            originalPrice.textContent = "$" + p.original_price.toFixed(2);
+            
+            const salePrice = document.createElement('span');
+            salePrice.className = 'sale-price';
+            salePrice.textContent = "$" + p.price.toFixed(2);
+            
+            const savingsText = document.createElement('span');
+            savingsText.className = 'savings';
+            savingsText.textContent = " Save $" + savings.toFixed(2) + " (" + savingsPercent + "%)";
+            
+            priceContainer.append(originalPrice, ' ', salePrice, savingsText);
+          } else {
+            const currentPrice = document.createElement('span');
+            currentPrice.className = 'current-price';
+            currentPrice.textContent = "$" + p.price.toFixed(2);
+            priceContainer.appendChild(currentPrice);
+          }
+          
+          // Price breakdown
+          const totalPrice = calculateTotalPrice(p);
+          if (p.shipping > 0 || p.tax > 0) {
+            const breakdown = document.createElement('div');
+            breakdown.className = 'price-breakdown';
+            let breakdownText = "Total: $" + totalPrice.toFixed(2);
+            if (p.shipping > 0) breakdownText += " (includes $" + p.shipping.toFixed(2) + " shipping)";
+            if (p.tax > 0) breakdownText += " + $" + p.tax.toFixed(2) + " tax";
+            breakdown.textContent = breakdownText;
+            priceContainer.appendChild(breakdown);
+          }
+          
+          const description = document.createElement('div'); 
+          description.className = 'meta';
+          description.textContent = p.description;
+          
+          const badges = document.createElement('div'); badges.className = 'badges';
+          if (p.new_arrival) badges.innerHTML += "<span class='badge'>🆕 New Arrival</span>";
+          if (p.trending) badges.innerHTML += "<span class='badge'>🔥 Trending</span>";
+          if (p.bestseller) badges.innerHTML += "<span class='badge'>⭐ Bestseller</span>";
+          if (p.limited_edition && p.availability) badges.innerHTML += "<span class='badge'>⚡ Only " + p.availability + " left</span>";
+
+          const cardActions = document.createElement('div');
+          cardActions.className = 'card-actions';
+          const row = document.createElement('div'); row.className = 'row';
+          const btn = document.createElement('button'); btn.textContent = "Add to cart"; btn.className="primary";
+          btn.onclick = () => addToCart(originalIndex);
+          row.appendChild(btn);
+          cardActions.appendChild(row);
+
+          cardText.append(name, meta, priceContainer, description, badges);
+          cardContent.append(cardText, cardActions);
+          card.append(img, cardContent);
+          grid.appendChild(card);
+        });
+      }
+
+      function refreshCart() {
+        const div = document.getElementById('cart');
+        if (CART.length === 0) { div.innerHTML = "<i>Cart empty</i>"; return; }
+        let html = "<table><thead><tr><th>Name</th><th>Price</th><th>Brand</th><th>Category</th><th>Shipping</th><th>Tax</th><th>Total</th></tr></thead><tbody>";
+        CART.forEach(p => {
+          const total = p.price + (p.shipping || 0) + (p.tax || 0);
+          html += "<tr><td>" + p.name + "</td><td>$" + p.price.toFixed(2) + "</td><td>" + p.brand + "</td><td>" + p.category + "</td><td>$" + (p.shipping || 0).toFixed(2) + "</td><td>$" + (p.tax || 0).toFixed(2) + "</td><td>$" + total.toFixed(2) + "</td></tr>";
+        });
+        html += "</tbody></table>";
+        div.innerHTML = html;
+      }
+
+      function addToCart(pos) {
+        const p = CATALOG[pos];
+        CART.push(p);
+        const entry = {
+          timestamp: Date.now()/1000,
+          position: pos, 
+          row: Math.floor(pos/${currentCols})+1, 
+          col: (pos%${currentCols})+1,
+          name: p.name, price: p.price, original_price: p.original_price, shipping: p.shipping, tax: p.tax,
+          brand: p.brand, category: p.category, description: p.description,
+          badges: BADGE_KEYS.reduce((o,k)=> (o[k]=!!p[k], o), {}),
+          availability: p.availability
+        };
+        LOG.push(entry);
+        refreshCart();
+      }
+
+      // Search functionality
+      document.getElementById('searchInput').addEventListener('input', renderGrid);
+
+      // Initial render
+      FILTERED_CATALOG = [...CATALOG];
+      renderGrid(); refreshCart();
+    `;
+  }
+  
+  // Download the HTML file
+  const htmlContent = '<!DOCTYPE html>' + newDoc.documentElement.outerHTML;
+  const blob = new Blob([htmlContent], { type: 'text/html' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'product_sandbox_production.html';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function refreshCart() {
+  const div = document.getElementById('cart');
+  if (CART.length === 0) { div.innerHTML = "<i>Cart empty</i>"; return; }
+  let html = "<table><thead><tr><th>Name</th><th>Price</th><th>Brand</th><th>Category</th><th>Shipping</th><th>Tax</th><th>Total</th></tr></thead><tbody>";
+  CART.forEach(p => {
+    const total = p.price + (p.shipping || 0) + (p.tax || 0);
+    html += `<tr><td>${p.name}</td><td>$${p.price.toFixed(2)}</td><td>${p.brand}</td><td>${p.category}</td><td>$${(p.shipping || 0).toFixed(2)}</td><td>$${(p.tax || 0).toFixed(2)}</td><td>$${total.toFixed(2)}</td></tr>`;
+  });
+  html += "</tbody></table>";
+  div.innerHTML = html;
+}
+
+function addToCart(pos) {
+  const p = CATALOG[pos];
+  CART.push(p);
+  const entry = {
+    timestamp: Date.now()/1000,
+    position: pos, 
+    row: Math.floor(pos/parseInt(document.getElementById('gridCols').value))+1, 
+    col: (pos%parseInt(document.getElementById('gridCols').value))+1,
+    name: p.name, price: p.price, original_price: p.original_price, shipping: p.shipping, tax: p.tax,
+    brand: p.brand, category: p.category, description: p.description,
+    badges: BADGE_KEYS.reduce((o,k)=> (o[k]=!!p[k], o), {}),
+    availability: p.availability
+  };
+  LOG.push(entry);
+  refreshCart();
+}
+
+function toCSV(rows) {
+  if (!rows || !rows.length) return "";
+  const headers = Object.keys(rows[0]);
+  const esc = v => ('"'+String(v).replaceAll('"','""')+'"');
+  const lines = [headers.map(esc).join(",")];
+  rows.forEach(r=> lines.push(headers.map(h=>esc(r[h] ?? "")).join(",")));
+  return lines.join("\n");
+}
+
+function download(filename, text, mime="text/plain") {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([text], {type:mime}));
+  a.download = filename; a.click();
+}
+
+function exportLog() {
+  if (LOG.length===0) { alert("No selections yet."); return; }
+  download("product_selections_log.csv", toCSV(LOG), "text/csv");
+}
+
+function saveSession() {
+  const data = { name: "product-session-"+Date.now(), timestamp: Date.now()/1000, catalog: CATALOG, cart: CART, selections_log: LOG };
+  download("product_session.json", JSON.stringify(data, null, 2), "application/json");
+}
+
+function loadSession(file) {
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const data = JSON.parse(e.target.result);
+      CATALOG = data.catalog || CATALOG;
+      CART = data.cart || [];
+      LOG = data.selections_log || [];
+      renderGrid(); refreshCart(); buildEditor();
+      document.getElementById('editorMsg').textContent = "Session loaded.";
+    } catch(err) {
+      alert("Invalid session file.");
+    }
+  };
+  reader.readAsText(file);
+}
+
+function buildEditor() {
+  const editor = document.getElementById('editor');
+  editor.innerHTML = "";
+  
+  // Only show products that are actually displayed in the boxes
+  const maxItems = getGridSize();
+  const displayedProducts = CATALOG.slice(0, maxItems);
+  
+  // Table style editor
+  let html = "<table><thead><tr><th>#</th><th>Name</th><th>Category</th><th>Brand</th><th>Description</th><th>Price</th><th>Original Price</th><th>Shipping</th><th>Tax</th><th>Image</th><th>New Arrival</th><th>Trending</th><th>Bestseller</th><th>Limited</th><th>Availability</th><th>Actions</th></tr></thead><tbody>";
+  displayedProducts.forEach((p,i)=>{
+    // Use array index instead of name-based ID to avoid issues when name changes
+    html += `<tr>
+      <td>${i+1}</td>
+      <td><input type="text" data-k="name" data-product-index="${i}" value="${p.name}"></td>
+      <td><input type="text" data-k="category" data-product-index="${i}" value="${p.category}"></td>
+      <td><input type="text" data-k="brand" data-product-index="${i}" value="${p.brand}"></td>
+      <td><input type="text" data-k="description" data-product-index="${i}" value="${p.description}"></td>
+      <td><input type="number" step="0.01" data-k="price" data-product-index="${i}" value="${p.price}"></td>
+      <td><input type="number" step="0.01" data-k="original_price" data-product-index="${i}" value="${p.original_price || ''}"></td>
+      <td><input type="number" step="0.01" data-k="shipping" data-product-index="${i}" value="${p.shipping || ''}"></td>
+      <td><input type="number" step="0.01" data-k="tax" data-product-index="${i}" value="${p.tax || ''}"></td>
+      <td><input type="file" accept="image/*" data-k="image" data-product-index="${i}" class="image-input"><br><img src="${p.image}" alt="Preview" style="max-width:50px;max-height:50px;margin-top:4px;"></td>
+      <td><input type="checkbox" data-k="new_arrival" data-product-index="${i}" ${p.new_arrival?"checked":""}></td>
+      <td><input type="checkbox" data-k="trending" data-product-index="${i}" ${p.trending?"checked":""}></td>
+      <td><input type="checkbox" data-k="bestseller" data-product-index="${i}" ${p.bestseller?"checked":""}></td>
+      <td><input type="checkbox" data-k="limited_edition" data-product-index="${i}" ${p.limited_edition?"checked":""}></td>
+      <td><input type="number" step="1" data-k="availability" data-product-index="${i}" value="${p.availability??""}"></td>
+      <td><button onclick="deleteProductByIndex(${i})" style="background:#ff4444;color:white;border:none;padding:4px 8px;border-radius:4px;cursor:pointer;">Delete</button></td>
+    </tr>`;
+  });
+  html += `<tr>
+    <td colspan="16" style="text-align:center;padding:10px;">
+      <button onclick="addProduct()" style="background:#007bff;color:white;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;">➕ Add New Product</button>
+      <input type="file" id="excelImport" accept=".xlsx,.xls,.csv" style="margin-left:10px;" onchange="importFromExcel(this)">
+      <label for="excelImport" style="margin-left:5px;cursor:pointer;color:#007bff;">📊 Import from Excel</label>
+    </td>
+  </tr>`;
+  html += "</tbody></table>";
+  editor.innerHTML = html;
+
+  editor.querySelectorAll("input").forEach(inp => {
+    inp.addEventListener("change", (e)=>{
+      const productIndex = parseInt(e.target.dataset.productIndex); const k = e.target.dataset.k;
+      let v = e.target.value;
+      
+      // Validate index is within bounds
+      if (productIndex < 0 || productIndex >= CATALOG.length) return;
+      
+      if (k === "image" && e.target.files && e.target.files[0]) {
+        // Handle image upload
+        const file = e.target.files[0];
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          CATALOG[productIndex][k] = e.target.result;
+          // Update the preview image
+          const img = e.target.closest('tr').querySelector('img');
+          if (img) img.src = e.target.result;
+          document.getElementById('editorMsg').textContent = "Image updated.";
+          renderGrid();
+        };
+        reader.readAsDataURL(file);
+        return;
+      }
+      
+      if (["price","original_price","shipping","tax","availability"].includes(k)) {
+        v = v==="" ? null : Number(v);
+      }
+      if (["new_arrival","trending","bestseller","limited_edition"].includes(k)) {
+        CATALOG[productIndex][k] = e.target.checked;
+      } else {
+        CATALOG[productIndex][k] = v;
+      }
+      document.getElementById('editorMsg').textContent = "Changes applied.";
+      renderGrid();
+    });
+  });
+}
+
+// Event listeners
+document.getElementById('shuffle').onclick = () => { CATALOG = shuffle(CATALOG); renderGrid(); };
+document.getElementById('exportLog').onclick = exportLog;
+document.getElementById('saveSession').onclick = saveSession;
+document.getElementById('saveHTML').onclick = saveHTML;
+document.getElementById('loadSession').addEventListener('change', (e)=> e.target.files[0] && loadSession(e.target.files[0]));
+
+document.getElementById('resetProducts').onclick = () => { 
+  CATALOG = [
+    {
+      "name": "Wireless Headphones",
+      "category": "Electronics",
+      "brand": "TechSound",
+      "description": "Premium wireless headphones with noise cancellation",
+      "price": 89.99,
+      "original_price": 129.99,
+      "shipping": 5.99,
+      "tax": 7.20,
+      "image": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjMwMCIgZmlsbD0iIzMzMzMzMyIvPjx0ZXh0IHg9IjEwMCIgeT0iMTUwIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IndoaXRlIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5XaXJlbGVzcyBIZWFkcGhvbmVzPC90ZXh0Pjx0ZXh0IHg9IjEwMCIgeT0iMTcwIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTIiIGZpbGw9IiNjY2MiIHRleHQtYW5jaG9yPSJtaWRkbGUiPkVsZWN0cm9uaWNzPC90ZXh0Pjwvc3ZnPg==",
+      "new_arrival": true,
+      "trending": true,
+      "limited_edition": false,
+      "bestseller": false,
+      "availability": null
+    },
+    {
+      "name": "Smart Watch",
+      "category": "Wearables",
+      "brand": "FitTech",
+      "description": "Advanced fitness tracking smartwatch",
+      "price": 199.99,
+      "original_price": null,
+      "shipping": 0.00,
+      "tax": 16.00,
+      "image": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjMwMCIgZmlsbD0iIzE2NDI1MCIvPjx0ZXh0IHg9IjEwMCIgeT0iMTUwIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IndoaXRlIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5TbWFydCBXYXRjaDwvdGV4dD48dGV4dCB4PSIxMDAiIHk9IjE3MCIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjEyIiBmaWxsPSIjY2NjIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5XZWFyYWJsZXM8L3RleHQ+PC9zdmc+",
+      "new_arrival": false,
+      "trending": true,
+      "limited_edition": false,
+      "bestseller": true,
+      "availability": null
+    },
+    {
+      "name": "Coffee Maker",
+      "category": "Kitchen",
+      "brand": "BrewMaster",
+      "description": "Professional-grade coffee maker with timer",
+      "price": 45.99,
+      "original_price": 65.99,
+      "shipping": 8.99,
+      "tax": 4.40,
+      "image": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjMwMCIgZmlsbD0iIzgwMDAwMCIvPjx0ZXh0IHg9IjEwMCIgeT0iMTUwIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IndoaXRlIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5Db2ZmZWUgTWFrZXI8L3RleHQ+PHRleHQgeD0iMTAwIiB5PSIxNzAiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxMiIgZmlsbD0iI2NjYyIgdGV4dC1hbmNob3I9Im1pZGRsZSI+S2l0Y2hlbjwvdGV4dD48L3N2Zz4=",
+      "new_arrival": false,
+      "trending": false,
+      "limited_edition": true,
+      "bestseller": false,
+      "availability": 15
+    },
+    {
+      "name": "Bluetooth Speaker",
+      "category": "Electronics",
+      "brand": "SoundWave",
+      "description": "Portable waterproof Bluetooth speaker",
+      "price": 79.99,
+      "original_price": null,
+      "shipping": 4.99,
+      "tax": 6.40,
+      "image": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjMwMCIgZmlsbD0iIzAwNDQ2RCIvPjx0ZXh0IHg9IjEwMCIgeT0iMTQwIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTIiIGZpbGw9IndoaXRlIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5CbHVldG9vdGggU3BlYWtlcjwvdGV4dD48dGV4dCB4PSIxMDAiIHk9IjE1NiIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjEyIiBmaWxsPSIjY2NjIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5FbGVjdHJvbmljczwvdGV4dD48dGV4dCB4PSIxMDAiIHk9IjE3OCIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjEyIiBmaWxsPSIjY2NjIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5Qb3J0YWJsZTwvdGV4dD48L3N2Zz4=",
+      "new_arrival": false,
+      "trending": false,
+      "limited_edition": false,
+      "bestseller": true,
+      "availability": null
+    },
+    {
+      "name": "Laptop Stand",
+      "category": "Office",
+      "brand": "ErgoTech",
+      "description": "Adjustable aluminum laptop stand",
+      "price": 29.99,
+      "original_price": 39.99,
+      "shipping": 0.00,
+      "tax": 2.40,
+      "image": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjMwMCIgZmlsbD0iIzAwMDAwMCIvPjx0ZXh0IHg9IjEwMCIgeT0iMTUwIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IiMwMEZGMDAiIHRleHQtYW5jaG9yPSJtaWRkbGUiPkxhcHRvcCBTdGFuZDwvdGV4dD48dGV4dCB4PSIxMDAiIHk9IjE3MCIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjEyIiBmaWxsPSIjY2NjIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5PZmZpY2U8L3RleHQ+PC9zdmc+",
+      "new_arrival": true,
+      "trending": false,
+      "limited_edition": false,
+      "bestseller": false,
+      "availability": null
+    },
+    {
+      "name": "Fitness Tracker",
+      "category": "Wearables",
+      "brand": "FitTech",
+      "description": "Basic fitness tracking wristband",
+      "price": 49.99,
+      "original_price": null,
+      "shipping": 3.99,
+      "tax": 4.00,
+      "image": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjMwMCIgZmlsbD0iIzAwNjYwMCIvPjx0ZXh0IHg9IjEwMCIgeT0iMTUwIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IndoaXRlIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5GaXRuZXNzIFRyYWNrZXI8L3RleHQ+PHRleHQgeD0iMTAwIiB5PSIxNzAiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxMiIgZmlsbD0iI2NjYyIgdGV4dC1hbmNob3I9Im1pZGRsZSI+V2VhcmFibGVzPC90ZXh0Pjwvc3ZnPg==",
+      "new_arrival": false,
+      "trending": false,
+      "limited_edition": false,
+      "bestseller": false,
+      "availability": null
+    }
+  ];
+  buildEditor(); 
+  renderGrid(); 
+};
+
+// Grid size change listeners
+document.getElementById('gridCols').addEventListener('change', () => {
+  renderGrid();
+  buildEditor();
+});
+document.getElementById('gridRows').addEventListener('change', () => {
+  renderGrid();
+  buildEditor();
+});
+
+// Search functionality
+document.getElementById('searchInput').addEventListener('input', renderGrid);
+
+// initial render
+FILTERED_CATALOG = [...CATALOG];
+renderGrid(); refreshCart(); buildEditor();
+</script>
+</body>
+</html>
